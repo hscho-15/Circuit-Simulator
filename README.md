@@ -1,2 +1,2 @@
 # Circuit-Simulator
-Electronic Circuit Simulator for Performance Test
+Electronic Circuit Simulator for School Performance Test

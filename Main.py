@@ -1,6 +1,7 @@
 # Circuit Simulator #
 # Made by hscho-15 #
-# v1.0.0 #
+# v0.0.1-alpha #
+# Compiled: 2024. 06. 15. #
 
 # Main.py
 import pygame

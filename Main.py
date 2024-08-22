@@ -4,253 +4,249 @@
 # Compiled: 2024. 06. 15. #
 
 # Main.py
-import pygame
-import numpy as np
-from numpy.linalg import LinAlgError
-from scipy.linalg import solve
-import tkinter as tk
-from tkinter import simpledialog, messagebox
-import sys
+from References import * # References.py 로딩하기
+
+# pygame 시작!
+pygame.init()
+
+# pygame 창 띄우기
+width, height = 800, 600
+screen = pygame.display.set_mode((width, height))
+
+# 유용한 변수 선언하기
+running : bool = True # 게임 실행 여부 저장
+selected_component : Component = None # 선택한 구성 요소 저장
+dragging_node : Node = None # 현재 만드는 전선의 첫번째 시작 연결점 저장
+offset_x : int = 0 # 선택한 부분이 구성 요소의 어느 부분인지 저장 (x좌표)
+offset_y : int = 0 # 선택한 부분이 구성 요소의 어느 부분인지 저장 (y좌표)
+new_component : Component = None # 새로운 구성 요소 저장
+
+# 회로 생성
+circuit = Circuit()
+
+# pygame 메인 반복문
+while running:
+    for event in pygame.event.get():
+
+        # 창 닫는 이벤트
+        if event.type == pygame.QUIT:
+            running = False
+
+        # 마우스 클릭 이벤트
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+
+            # 마우스 왼쪽 클릭.
+            if event.button == 1:
+                # 새 구성 요소 생성 후 배치할 때
+                if new_component != None:
+                    selected_component = None
+                    moving = False
+                    new_component = None
+
+                # 구성 요소에 클릭 -> 움직이기 시작
+                for component in circuit.components:
+                    if component.rect.collidepoint(event.pos):
+                        selected_component = component
+                        offset_x = component.rect.x - event.pos[0]
+                        offset_y = component.rect.y - event.pos[1]
+                        break
+
+                # 구성요소 새로 추가하는 버튼 클릭 -> 구성 요소 추가하기
+                if event.pos[1] > height - 100:
+
+                    # 배터리 추가 버튼
+                    if event.pos[0] <= 200:
+
+                        # 유저가 제대로 입력할 때 까지 반복
+                        while True:
+                            # 베터리 전압 입력받기
+                            user_input = simpledialog.askstring("전압 입력", "배터리의 전압을 V 단위로 입력하세요. 취소하려면 아무 것도 입력하지 마세요:")
+
+                            # 암것도 입력 안 한 경우 -> 실수로 버튼 누른것으로 판단해 입력 취소
+                            if not user_input:
+                                user_input_bool = False
+                                break
+
+                            # 숫자 입력한 경우 -> 제대로 입력했으므로 while 반복문 빠져나오기
+                            if user_input.isnumeric():
+                                user_input_bool = True
+                                break
+
+                            # 이상한거 입력한 경우
+                            else:
+                                # 오류 메세지
+                                messagebox.showinfo("전압 입력", "숫자만 입력해 주세요!")
+
+                        # 입력했는 경우 -> 배터리 객체 생성
+                        if user_input_bool == True:
+                            v = int(user_input)
+                            n1 = Node("N{0}".format(len(circuit.nodes)), event.pos)
+                            n2 = Node("N{0}".format(len(circuit.nodes)+1), (event.pos[0] + 25, event.pos[1] + 25))
+                            circuit.add_node(n1)
+                            circuit.add_node(n2)
+                            new_component = Battery("B{0}".format(len(list(filter(lambda x: isinstance(x, Battery), circuit.components)))), v, event.pos, n1, n2)
+                            selected_component = new_component
+                            circuit.add_component(new_component)
 
 
-# 회로 총괄 클래스
-class Circuit:
-    # 회로 객체 생성자
-    def __init__(self):
-        self.components = []
-        self.nodes = []
-        self.wire_indices = {}
-        self.wires = []
+                    # 저항 추가 버튼
+                    elif event.pos[0] <= 400:
 
-    # 회로에 구성 요소를 등록하는 메소드
-    def add_component(self, component):
-        self.components.append(component)
-        component.node1.connected_components.append(component)
-        component.node2.connected_components.append(component)
+                        # 유저가 제대로 입력할 때 까지 반복
+                        while True:
+                            # 저항 저항값 입력받기
+                            user_input = simpledialog.askstring("저항값 입력",
+                                                                "저항의 저항값을 Ω 단위로 입력하세요. 취소하려면 아무 것도 입력하지 마세요:")
 
+                            # 암것도 입력 안 한 경우 -> 실수로 객체 생성 버튼 누른것으로 판단해 입력 취소
+                            if not user_input:
+                                user_input_bool = False
+                                break
 
-    # 회로에 구성 요소를 삭제하는 메소드
-    def remove_component(self, component):
-        self.components.remove(component)
+                            # 숫자 입력한 경우 -> 제대로 입력했으므로 while 반복문 빠져나오기
+                            if user_input.isnumeric():
+                                user_input_bool = True
+                                break
 
-    # 회로에 전선을 등록하는 메소드
-    def add_node(self, node):
-        self.nodes.append(node)
+                            # 이상한거 입력한 경우
+                            else:
+                                # 오류 메세지
+                                messagebox.showinfo("저항값 입력", "숫자만 입력해 주세요!")
 
-    def add_wire(self, wire, nodea, nodeb):
-        self.wires.append(wire)
-        nodea.connected_wires.append(wire)
-        nodeb.connected_wires.append(wire)
+                        # 입력했는 경우 -> 배터리 객체 생성
+                        if user_input_bool == True:
+                            r = int(user_input)
+                            n1 = Node("N{0}".format(len(circuit.nodes)), event.pos)
+                            n2 = Node("N{0}".format(len(circuit.nodes) + 1), (event.pos[0] + 25, event.pos[1] + 25))
+                            circuit.add_node(n1)
+                            circuit.add_node(n2)
+                            new_component = Resistor(
+                                "R{0}".format(len(list(filter(lambda x: isinstance(x, Resistor), circuit.components)))),
+                                r, event.pos, n1, n2)
+                            selected_component = new_component
+                            circuit.add_component(new_component)
 
-    # 회로의 전류를 계산하는 메소드
-    def solve(self):
-        try:
-            # 전선 인덱스 초기화
-            self.wire_indices = {wire: i for i, wire in enumerate(self.wires)}
-            num_wires = len(self.wires)
-            A = np.zeros((num_wires, num_wires))
-            b = np.zeros(num_wires)
+                    # LED 추가 버튼
+                    elif event.pos[0] <= 600:
 
-            # 전선에 대한 방정식 설정
-            for component in self.components:
-                node1 = component.node1
-                node2 = component.node2
-                if isinstance(component, Resistor):
-                    for wire in node1.connected_wires:
-                        i = self.wire_indices[wire]
-                        for wire2 in node2.connected_wires:
-                            j = self.wire_indices[wire2]
-                            A[i, i] += 1 / component.resistance
-                            A[j, j] += 1 / component.resistance
-                            A[i, j] -= 1 / component.resistance
-                            A[j, i] -= 1 / component.resistance
-                elif isinstance(component, LED):
-                    for wire in node1.connected_wires:
-                        i = self.wire_indices[wire]
-                        for wire2 in node2.connected_wires:
-                            j = self.wire_indices[wire2]
-                            A[i, i] += 1 / component.resistance
-                            A[j, j] += 1 / component.resistance
-                            A[i, j] -= 1 / component.resistance
-                            A[j, i] -= 1 / component.resistance
-                elif isinstance(component, Battery):
-                    for wire in node1.connected_wires:
-                        i = self.wire_indices[wire]
-                        for wire2 in node2.connected_wires:
-                            j = self.wire_indices[wire2]
-                            A[i, i] += 1e9
-                            A[j, j] += 1e9
-                            A[i, j] -= 1e9
-                            A[j, i] -= 1e9
-                            b[i] += component.voltage * 1e9
-                            b[j] -= component.voltage * 1e9
+                        # 유저가 제대로 입력할 때 까지 반복
+                        while True:
+                            # LED 저항값 입력받기
+                            user_input = simpledialog.askstring("저항값 입력",
+                                                                "LED의 저항값을 Ω 단위로 입력하세요. 취소하려면 아무 것도 입력하지 마세요:")
 
-            # 첫 번째 전선을 그라운드로 설정
-            A[0, :] = 0
-            A[:, 0] = 0
-            A[0, 0] = 1
-            b[0] = 0
+                            # 암것도 입력 안 한 경우 -> 실수로 객체 생성 버튼 누른것으로 판단해 입력 취소
+                            if not user_input:
+                                user_input_bool = False
+                                break
 
-            # 행렬 방정식 풀이
-            potentials = solve(A, b)
+                            # 숫자 입력한 경우 -> 제대로 입력했으므로 while 반복문 빠져나오기
+                            if user_input.isnumeric():
+                                user_input_bool = True
+                                break
 
-            # 각 전선에 계산된 전압 설정
-            for wire, i in self.wire_indices.items():
-                wire.voltage = potentials[i]
+                            # 이상한거 입력한 경우
+                            else:
+                                # 오류 메세지
+                                messagebox.showinfo("저항값 입력", "숫자만 입력해 주세요!")
 
-            # 각 노드에 대해 전압 설정
-            for node in self.nodes:
-                node.potential = sum(wire.voltage for wire in node.connected_wires) / len(node.connected_wires)
+                        # 입력했는 경우 -> 배터리 객체 생성
+                        if user_input_bool == True:
+                            r = int(user_input)
+                            n1 = Node("N{0}".format(len(circuit.nodes)), event.pos)
+                            n2 = Node("N{0}".format(len(circuit.nodes) + 1), (event.pos[0] + 25, event.pos[1] + 25))
+                            circuit.add_node(n1)
+                            circuit.add_node(n2)
+                            new_component = LED(
+                                "L{0}".format(len(list(filter(lambda x: isinstance(x, LED), circuit.components)))),
+                                r, event.pos, n1, n2)
+                            selected_component = new_component
+                            circuit.add_component(new_component)
 
-            # 각 구성 요소에 대해 전류 계산
-            for component in self.components:
-                if isinstance(component, Resistor):
-                    component.voltage = component.node1.potential - component.node2.potential
-                    component.current = component.voltage / component.resistance
-                elif isinstance(component, LED):
-                    component.voltage = component.node1.potential - component.node2.potential
-                    component.current = component.voltage / component.resistance
-                elif isinstance(component, Battery):
-                    component.voltage = component.voltage
-                    component.current = (component.node1.potential - component.node2.potential) / component.voltage
-                print("{0}: {1:.2}".format(component.name, component.current))
+                    # 시뮬레이션 버튼
+                    else:
+                        circuit.solve()
 
-        except Exception as e:
-            print("풀 수 없는 회로입니다. 모든 구성요소가 잘 연결되었는지 확인해 주세요.")
-            print(f"에러 코드: {e}")
-            return
+            # 마우스 오른쪽 클릭
+            elif event.button == 3:
+                # 우클릭한 연결점 찾기
+                for component in circuit.components:
+                    # node1이 연결됐는지 찾기
+                    if component.node1.rect.collidepoint(event.pos):
+                        dragging_node = component.node1
+                        break
 
-    # 회로의 구성 요소, 전선 등을 그려주는 메소드
-    def draw(self, screen):
-        for component in self.components:
-            component.draw(screen)
-        for node in self.nodes:
-            node.draw(screen)
-        for wire in self.wires:
-            wire.draw(screen)
+                    # node2가 연결됐는지 찾기
+                    if component.node2.rect.collidepoint(event.pos):
+                        dragging_node = component.node2
+                        break
 
-# 전선 연결점 클래스
-class Node:
-    # 연결점 객체 생성자
-    def __init__(self, name, position):
-        self.name = name
-        self.rect = pygame.Rect(position[0], position[1], 10, 10)
-        self.position = position
-        self.potential = 0.0
-        self.connected_wires = []
-        self.connected_components = []
+        # 마우스 클릭 떼는 이벤트
+        elif event.type == pygame.MOUSEBUTTONUP:
+            # 마우스 좌클릭 뗌
+            if event.button == 1:
+                # 새 구성 요소 생성 후 배치할 때를 제외하기
+                if new_component == None:
+                    selected_component = None
+                    moving = False
+                    new_component = None
 
-    # 전선 그려주는 메소드
-    def draw(self, screen):
-        self.rect = pygame.Rect(self.position[0], self.position[1], 10, 10)
-        pygame.draw.ellipse(screen, (0,0,255), self.rect)
+            # 마우스 우클릭 뗌
+            elif event.button == 3:
+                # 전선 생성 도중이면 -> 마우스 위치에 다른 연결점이 있으면 전선 생성
+                if dragging_node != None:
+                    for component in circuit.components:
+                        if component.node1.rect.collidepoint(event.pos):
+                            if component.node1 != dragging_node:
+                                circuit.add_wire(Wire(dragging_node, component.node1), component.node1, dragging_node)
+                                break
 
-# 전선 클래스
-class Wire:
-    def __init__(self, start_node, end_node):
-        self.start_node = start_node
-        self.end_node = end_node
-        self.voltage = 0.0
-
-    def draw(self, screen):
-        pygame.draw.line(screen, (0,0,0), self.start_node.position, self.end_node.position, 2)
+                        if component.node2.rect.collidepoint(event.pos):
+                            if component.node2 != dragging_node:
+                                circuit.add_wire(Wire(dragging_node, component.node2), component.node2, dragging_node)
+                                break
 
 
-# 구성 요소 클래스
-# 구성 요소 총괄 클래스
-class Component:
-    # 구성 요소 객체 생성자
-    def __init__(self, name: str, position: tuple, node1: Node, node2: Node):
-        self.name = name
-        self.position = position
-        self.rect = pygame.Rect(position[0], position[1], 60, 20)
-        self.node1 = node1
-        self.node2 = node2
-        self.current = 0.0
+                    dragging_node = None
 
-    # 구성 요소 그려주는 메소드
-    def draw(self, screen):
-        pass # 자식 클래스에서 정의할꺼에요!
+        # 마우스 움직이는 이벤트
+        elif event.type == pygame.MOUSEMOTION:
+            if selected_component != None:
+                selected_component.rect.x = event.pos[0] + offset_x
+                selected_component.rect.y = event.pos[1] + offset_y
+                selected_component.node1.position = (selected_component.rect.x-10, selected_component.rect.y + selected_component.rect.height // 2)
+                selected_component.node2.position = (selected_component.rect.x + selected_component.rect.width, selected_component.rect.y + selected_component.rect.height // 2)
 
-# 배터리
-class Battery(Component):
-    # 배터리 객체 생성자
-    def __init__(self, name: str, voltage: int, position: tuple, node1: Node, node2: Node):
-        # Component 부모 클래스의 생성자 호출하기!
-        super().__init__(name, position, node1, node2)
+    # 화면 하얗게 채우기
+    screen.fill((255, 255, 255))
 
-        # 전압 (self.voltage) 설정
-        self.voltage = voltage
+    # 버튼 생성
+    pygame.draw.rect(screen, (0, 255, 0), (0, 500, 200, 100))
+    pygame.draw.rect(screen, (251, 206, 177), (200, 500, 200, 100))
+    pygame.draw.rect(screen, (255, 255, 0), (400, 500, 200, 100))
+    pygame.draw.rect(screen, (0, 0, 0), (600, 500, 200, 100))
 
-        # self.img, self.rect 설정
-        img = pygame.image.load("./Images/battery.png") # 이미지 로드
-        img = pygame.transform.scale(img, (56, 25)) # 이미지 크기 조정
-        self.img = img
-        self.rect = img.get_rect() # 이미지의 Rect 개체 로딩하기~
-        self.rect.center = position[0]+28, position[1]+12.5 # Rect 개체의 중심을 설정
+    # 버튼에 글자 새기기
+    font1 = pygame.font.SysFont('malgungothicsemilight', 30)
+    img1 = font1.render('배터리', True, (0, 0, 0))
+    screen.blit(img1, (60, 525))
 
-    # 배터리 그려주는 메소드
-    def draw(self, screen):
-        screen.blit(self.img, (self.rect.x, self.rect.y)) # 이미지 표시하기
+    img1 = font1.render('저항', True, (0, 0, 0))
+    screen.blit(img1, (260, 525))
+
+    img1 = font1.render('LED', True, (0, 0, 0))
+    screen.blit(img1, (460, 525))
+
+    img1 = font1.render('시뮬레이션', True, (255, 255, 255))
+    screen.blit(img1, (630, 525))
+
+    # 회로 그리기
+    circuit.draw(screen)
+
+    # 화면 수정 사항 반영
+    pygame.display.flip()
 
 
-# 저항
-class Resistor(Component):
-    # 배터리 객체 생성자
-    def __init__(self, name: str, resistance: int, position: tuple, node1: Node, node2: Node):
-        # Component 부모 클래스의 생성자 호출하기!
-        super().__init__(name, position, node1, node2)
-
-        # 저항 (self.resistance) 설정
-        self.resistance = resistance
-
-        # self.img, self.rect 설정
-        img = pygame.image.load("./Images/resistor.png")  # 이미지 로드
-        img = pygame.transform.scale(img, (27, 12))  # 이미지 크기 조정
-        self.img = img
-        self.rect = img.get_rect()  # 이미지의 Rect 개체 로딩하기~
-        self.rect.center = position[0] + 13.5, position[1] + 6  # Rect 개체의 중심을 설정
-
-    # 배터리 그려주는 메소드
-    def draw(self, screen):
-        screen.blit(self.img, (self.rect.x, self.rect.y))  # 이미지 표시하기
-
-        font1 = pygame.font.SysFont(None, 30)
-        img1 = font1.render('{0:.2}A'.format(self.current), True, (0, 0, 0))
-        screen.blit(img1, (self.rect.x, self.rect.y + 20))
-
-# LED
-class LED(Component):
-    # 배터리 객체 생성자
-    def __init__(self, name: str, resistance: int, position: tuple, node1: Node, node2: Node):
-        # Component 부모 클래스의 생성자 호출하기!
-        super().__init__(name, position, node1, node2)
-
-        # 저항 (self.resistance) 설정
-        self.resistance = resistance
-
-        # self.img, self.rect 설정
-        if self.current:
-            img = pygame.image.load("Images/led_on.png")  # 이미지 로드
-        else:
-            img = pygame.image.load("Images/led_off.png")  # 이미지 로드
-        img = pygame.transform.scale(img, (30, 35))  # 이미지 크기 조정
-        self.img = img
-        self.rect = img.get_rect()  # 이미지의 Rect 개체 로딩하기~
-        self.rect.center = position[0] + 15, position[1] + 17.5  # Rect 개체의 중심을 설정
-
-    # 배터리 그려주는 메소드
-    def draw(self, screen):
-
-        # self.img, self.rect 설정
-        if self.current:
-            img = pygame.image.load("Images/led_on.png")  # 이미지 로드
-        else:
-            img = pygame.image.load("Images/led_off.png")  # 이미지 로드
-        img = pygame.transform.scale(img, (30, 35))  # 이미지 크기 조정
-        self.img = img
-        screen.blit(self.img, (self.rect.x, self.rect.y))  # 이미지 표시하기
-
-        font1 = pygame.font.SysFont(None, 30)
-        img1 = font1.render('{0:.2}A'.format(self.current), True, (0,0,0))
-        screen.blit(img1, (self.rect.x, self.rect.y + 30))
+# 게임 종료
+pygame.quit()
+sys.exit()

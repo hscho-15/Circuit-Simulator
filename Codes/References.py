@@ -1,7 +1,6 @@
 # References.py
 # 게임 로딩에 필요한 모듈, 변수, 클래스 정의한 파일입니다.
 # 게임 실행할 때 이 파일 말고 Circuit Simulator.py 실행해 주세요
-# 1415 조현수
 
 import pygame
 import numpy as np

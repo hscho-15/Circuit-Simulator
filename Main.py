@@ -1,3 +1,7 @@
+# Circuit Simulator #
+# Made by hscho-15 #
+# v1.0.0 #
+
 # Main.py
 import pygame
 import numpy as np
